@@ -4,7 +4,7 @@ import os
 # -----------------------------
 # CONFIG
 # -----------------------------
-INPUT_DIR = "."
+INPUT_DIR = "./data"
 OUTPUT_DIR = "./Cleaned"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -36,7 +36,7 @@ def clean_file(fname):
         ica.exclude = eog_inds
         print("ICA removed EOG:", eog_inds)
     except:
-        print("⚠️ No EOG channels found — skipping EOG removal")
+        print("No EOG channels found - skipping EOG removal")
 
     raw_clean = ica.apply(raw.copy())
 
@@ -44,7 +44,7 @@ def clean_file(fname):
     base = os.path.basename(fname).replace(".gdf", "")
     outname = f"{OUTPUT_DIR}/{base}_cleaned_raw.fif"
     raw_clean.save(outname, overwrite=True)
-    print(f"Saved → {outname}")
+    print(f"Saved -> {outname}")
 
 
 # -----------------------------
@@ -55,5 +55,5 @@ all_files = sorted([f for f in os.listdir(INPUT_DIR) if f.startswith("ID") and f
 print("FILES FOUND:", all_files)
 
 for f in all_files:
-    clean_file(f)
-
+    full_path = os.path.join(INPUT_DIR, f) # linha adicionada pq o MNE estava procurando na pasta raiz e não na data
+    clean_file(full_path)

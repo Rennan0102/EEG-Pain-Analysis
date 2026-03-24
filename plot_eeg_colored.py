@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # ---------- settings ----------
-FILE = "/Users/labonnomim/Downloads/pain/ID11.gdf"   # change to any ID*.gdf
+FILE = r"C:\Users\Renan\Pictures\Universidade\8periodo\EEG-Pain-Analysis\data\ID11.gdf"   # change to any ID*.gdf
 PICK = ["F3","F4","C3","C4","P3","P4","O1","O2"]      # channels to show
 SPACING_UV = 120                                      # vertical spacing in µV
 WIN_SEC = 10                                          # seconds to display per panel
@@ -71,7 +71,6 @@ def stack_plot(r, title):
     plt.show()
 
 if EO is not None:
-    stack_plot(EO, f"{FILE.split('/')[-1]} • Eyes Open (EO)")
+    stack_plot(EO, f"{FILE.split('/')[-1]} - Eyes Open (EO)")
 if EC is not None:
-    stack_plot(EC, f"{FILE.split('/')[-1]} • Eyes Closed (EC)")
-
+    stack_plot(EC, f"{FILE.split('/')[-1]} - Eyes Closed (EC)")

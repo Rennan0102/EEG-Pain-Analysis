@@ -15,7 +15,10 @@ from sklearn.ensemble import RandomForestClassifier
 # ------------------------------------------
 # 0) CONFIG
 # ------------------------------------------
-DATA_DIR = Path.home() / "Downloads" / "pain" / "Cleaned"
+DATA_DIR = Path(r"C:\Users\Renan\Pictures\Universidade\8periodo\EEG-Pain-Analysis\Cleaned")
+
+RESULTS_DIR = Path("./Results")
+RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # match both spellings: *_cleaned_raw.fif and *clean_raw.fif
 FILES = sorted(map(str, [
@@ -65,7 +68,10 @@ def extract_features(epochs):
         feats.append(bp / total_power)
     return np.vstack(feats).T
 
-def make_confusion_and_roc(y_true, y_score, y_pred, title_prefix, out_prefix):
+def make_confusion_and_roc(y_true, y_score, y_pred, title_prefix, model_folder):
+    target_dir = RESULTS_DIR / model_folder
+    target_dir.mkdir(parents=True, exist_ok=True)
+
     SHOW = True  # 👈 Add this toggle to control showing vs. saving
 
     cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
@@ -73,8 +79,7 @@ def make_confusion_and_roc(y_true, y_score, y_pred, title_prefix, out_prefix):
     fig_cm, ax_cm = plt.subplots(figsize=(5, 4))
     disp.plot(ax=ax_cm, colorbar=False)
     ax_cm.set_title(f"{title_prefix} — Confusion Matrix")
-    fig_cm.tight_layout()
-    fig_cm.savefig(f"{out_prefix}_confusion.png", dpi=300)
+    fig_cm.savefig(target_dir / "confusion(pain_classify).png", dpi=300)
     if SHOW:
         plt.show()  # 👈 Show confusion matrix
     plt.close()
@@ -88,8 +93,8 @@ def make_confusion_and_roc(y_true, y_score, y_pred, title_prefix, out_prefix):
     ax_roc.set_ylabel("True Positive Rate")
     ax_roc.set_title(f"{title_prefix} — ROC")
     ax_roc.legend()
-    fig_roc.tight_layout()
-    fig_roc.savefig(f"{out_prefix}_roc.png", dpi=300)
+
+    fig_roc.savefig(target_dir / "roc(pain_classify).png", dpi=300)
     if SHOW:
         plt.show()  # 👈 Show ROC curve
     plt.close()
@@ -163,13 +168,14 @@ def eval_model(name, pipe):
         y_proba = cross_val_predict(pipe, X, y, cv=splits, method="predict_proba")
         y_score = y_proba[:, 1]
     prefix = name.lower().replace(" ", "_")
-    make_confusion_and_roc(y, y_score, y_pred, title_prefix=name, out_prefix=prefix)
-    print(f"Saved {prefix}_confusion.png and {prefix}_roc.png")
+
+    folder_name = name.lower().replace(" ", "_").replace("(", "").replace(")", "")
+    make_confusion_and_roc(y, y_score, y_pred, title_prefix=name, model_folder=folder_name)
+    print(f"Saved in {RESULTS_DIR / folder_name}")
 
 # ------------------------------------------
 # 4) TRAIN & EVALUATE
 # ------------------------------------------
 eval_model("SVM (RBF)", svm_pipe)
 eval_model("Random Forest", rf_pipe)
-print("\n✅ Done! Check confusion and ROC PNG files in the folder.")
-
+print("\nDone! Check confusion and ROC PNG files in the folder.")

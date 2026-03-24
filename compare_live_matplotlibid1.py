@@ -1,18 +1,20 @@
 import os
 import numpy as np
 import mne
+from pathlib import Path
+from mne.export import export_raw
 
 # ========= SETTINGS (edit these) =========
 FILE     = "ID1.gdf"   # change to any ID*.gdf
-DATA_DIR = "/Users/labonnomim/Downloads/pain"
+DATA_DIR = r"C:\Users\Renan\Pictures\Universidade\8periodo\EEG-Pain-Analysis\data"
 DUR      = 10.0         # seconds to show in each viewer
 SCALE_UV = 150e-6       # trace scale (try 200e-6 or 500e-6 if lines look tiny)
 SAVE_EPOCHS = False     # set True if you want 2s epochs saved to disk
 # ========================================
 
 # Use matplotlib viewer (stable on macOS)
-mne.viz.set_browser_backend("matplotlib")
-
+# mne.viz.set_browser_backend("matplotlib")
+mne.viz.set_browser_backend("qt")
 
 # ------------- small helpers -------------
 def mark_bad_by_std(r: mne.io.BaseRaw, z: float = 4.0) -> None:
@@ -31,8 +33,7 @@ def mark_bad_by_std(r: mne.io.BaseRaw, z: float = 4.0) -> None:
     bads = [r.ch_names[picks[i]] for i in bad_idx]
     if bads:
         r.info["bads"] = sorted(set(r.info.get("bads", [])) | set(bads))
-        print(f"⚠️  Auto-marked bad channels (STD ≥{z}): {r.info['bads']}")
-
+        print(f"Auto-marked bad channels (STD >={z}): {r.info['bads']}")
 
 def apply_ica_blinks(r: mne.io.BaseRaw) -> mne.io.BaseRaw:
     """Try ICA blink removal. Falls back to no-ICA if anything fails."""
@@ -53,15 +54,14 @@ def apply_ica_blinks(r: mne.io.BaseRaw) -> mne.io.BaseRaw:
             inds, scores = ica.find_bads_eog(r)  # template method
         if inds:
             ica.exclude = list(set(inds))
-            print(f"✅ ICA: excluding components (blink-related): {ica.exclude}")
+            print(f"ICA: excluding components (blink-related): {ica.exclude}")
             return ica.apply(r.copy())
         else:
-            print("ℹ️  ICA found no blink components; returning original filtered signal.")
+            print("ICA found no blink components; returning original filtered signal.")
             return r
     except Exception as e:
-        print(f"ℹ️  ICA skipped ({e}). Using band-passed signal only.")
+        print(f"ICA skipped ({e}). Using band-passed signal only.")
         return r
-
 
 def find_eo_ec_ranges(raw: mne.io.BaseRaw, dur: float) -> tuple[tuple[float,float]|None, tuple[float,float]|None]:
     """Return (EO_range, EC_range) preferring annotations; else fallback windows."""
@@ -88,9 +88,8 @@ def find_eo_ec_ranges(raw: mne.io.BaseRaw, dur: float) -> tuple[tuple[float,floa
         EC = EO  # last resort
     return EO, EC
 
-
 def make_clean_copy(raw: mne.io.BaseRaw) -> mne.io.BaseRaw:
-    """Band-pass 1–40 Hz, 60 Hz notch (+harmonic), auto-mark bads, ICA blinks, avg re-ref."""
+    """Band-pass 1-40 Hz, 60 Hz notch (+harmonic), auto-mark bads, ICA blinks, avg re-ref."""
     clean = raw.copy()
     clean.load_data()
 
@@ -111,23 +110,17 @@ def make_clean_copy(raw: mne.io.BaseRaw) -> mne.io.BaseRaw:
     clean.set_eeg_reference("average")
     return clean
 
+browsers = []
 
 def show_pair(raw_full: mne.io.BaseRaw, clean_full: mne.io.BaseRaw, t0: float, t1: float, tag: str):
     """Open two non-blocking viewers (RAW vs CLEAN) for same time span."""
     r_raw   = raw_full.copy().crop(t0, t1)
     r_clean = clean_full.copy().crop(t0, t1)
 
-    r_raw.plot(
-        title=f"{FILE} • {tag} • RAW",
-        scalings=dict(eeg=SCALE_UV),
-        block=False,
-    )
-    r_clean.plot(
-        title=f"{FILE} • {tag} • CLEANED (1–40 Hz + notch)",
-        scalings=dict(eeg=SCALE_UV),
-        block=False,
-    )
-
+    b1 = r_raw.plot(title=f"{FILE} - {tag} - RAW", scalings=dict(eeg=SCALE_UV), show=False)
+    b2 = r_clean.plot(title=f"{FILE} - {tag} - CLEANED", scalings=dict(eeg=SCALE_UV), show=False)
+    
+    browsers.extend([b1, b2])
 
 def save_epochs(clean: mne.io.BaseRaw, eo_rng, ec_rng, outdir: str):
     """Save 2-second fixed-length epochs for EO and EC (optional)."""
@@ -138,8 +131,7 @@ def save_epochs(clean: mne.io.BaseRaw, eo_rng, ec_rng, outdir: str):
         epochs = mne.make_fixed_length_epochs(piece, duration=2.0, overlap=0.0, preload=True)
         fname = os.path.join(outdir, f"{os.path.splitext(FILE)[0]}_{tag}_epochs-epo.fif")
         epochs.save(fname, overwrite=True)
-        print(f"💾 Saved {tag} epochs ➜ {fname}  (n_epochs={len(epochs)})")
-
+        print(f"Saved {tag} epochs -> {fname}  (n_epochs={len(epochs)})")
 
 # ================= main =================
 if __name__ == "__main__":
@@ -161,30 +153,43 @@ if __name__ == "__main__":
     EO_rng, EC_rng = find_eo_ec_ranges(raw, DUR)
     print(f"EO range: {EO_rng}, EC range: {EC_rng}")
 
-    # ----- open viewers (stay open until you press ENTER in Terminal) -----
-    print("\n🪟 Opening viewers. Arrange EO windows side-by-side (macOS: Window ▸ Tile Left/Right).")
     show_pair(raw, clean, *EO_rng, "EO")
-    input("EO is on screen. Press ENTER to continue to EC...")
-
     show_pair(raw, clean, *EC_rng, "EC")
-    print("EC is on screen. Press ENTER when you’re done to close the script...")
-    input()
 
+    # Exibir todas as janelas criadas
+    for b in browsers:
+        b.show()
+
+    print("\n[BACKEND QT] Visualizadores abertos.")
+    print("Feche as janelas para salvar os dados e encerrar o script.")
+
+    # Iniciar loop do Qt (ESSENCIAL)
+    try:
+        from mne.viz.backends.qt import _qt_app_exec
+        _qt_app_exec()
+    except:
+        from PyQt5.QtWidgets import QApplication
+        import sys
+        app = QApplication.instance() or QApplication(sys.argv)
+        app.exec_()
+
+    # --- Salvar dados (após fechar as janelas) ---
+    out_dir = Path(DATA_DIR) / "processed"
+    out_dir.mkdir(exist_ok=True)
+
+    fname_base = Path(FILE).stem
+    
+    clean_fif = out_dir / f"{Path(FILE).stem}_clean_raw.fif"
+    clean.save(clean_fif, overwrite=True)
+
+    clean_edf = out_dir / f"{fname_base}_clean_raw.edf"
+    export_raw(str(clean_edf), clean, fmt="edf", overwrite=True)
+    
+    print(f"Arquivos salvos em: {out_dir}")
     # optional epochs for your deliverable
     if SAVE_EPOCHS:
-        save_epochs(clean, EO_rng, EC_rng, outdir=os.path.join(DATA_DIR, "epochs"))
+        save_epochs(clean, EO_rng, EC_rng, outdir=str(out_dir / "epochs"))
 
-    print("✅ Done. To run another subject, edit FILE at the top and re-run.")
+    print("Done. To run another subject, edit FILE at the top and re-run.")
 
-# === SAVE CLEAN DATA ===
-from pathlib import Path
-from mne.export import export_raw
-
-out_fif = "/Users/labonmomim/Downloads/pain/ID1_clean_raw.fif"
-raw.save(out_fif, overwrite=True)
-
-out_edf = "/Users/labonmomim/Downloads/pain/ID1_clean_raw.edf"
-export_raw(out_edf, raw, fmt="edf", physical_range="auto")
-
-print("Saved cleaned files ✅")
-
+# pip install edfio

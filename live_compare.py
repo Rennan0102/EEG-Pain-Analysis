@@ -1,8 +1,10 @@
 # Keep RAW & CLEAN viewers on screen until you close them
 import os, mne
 
+mne.viz.set_browser_backend("qt")
+
 FILE = "ID11.gdf"                       # change to any ID*.gdf
-DATA = "/Users/labonnomim/Downloads/pain"
+DATA = r"C:\Users\Renan\Pictures\Universidade\8periodo\EEG-Pain-Analysis\data"
 path = os.path.join(DATA, FILE)
 
 print("Loading:", path)
@@ -46,29 +48,38 @@ def open_pair(segment, tag):
     if segment is None:
         print(f"No {tag} segment.")
         return
-    raw_view   = segment.copy()
+
+    # Criamos a cópia filtrada
     clean_view = clean_copy(segment)
-    b1 = raw_view.plot(  duration=8, n_channels=10, scalings="auto",
-                         title=f"{FILE} • {tag} • RAW", block=False)
+    
+    # Plotamos ambos. Com o backend 'qt', o parâmetro 'block=False' 
+    # permite que o script continue para abrir as outras janelas.
+    b1 = segment.plot(duration=8, n_channels=10, scalings="auto",
+                      title=f"{FILE} - {tag} - RAW", show=False)
+    
     b2 = clean_view.plot(duration=8, n_channels=10, scalings="auto",
-                         title=f"{FILE} • {tag} • CLEANED (1–40 Hz + notch)", block=False)
+                         title=f"{FILE} - {tag} - CLEANED", show=False)
+    
     browsers.extend([b1, b2])
 
 open_pair(EO, "Eyes Open (EO)")
 open_pair(EC, "Eyes Closed (EC)")
 
-# Keep the windows up until you close them
+for b in browsers:
+    b.show()
+
+# Comando oficial para segurar o script enquanto o Qt está aberto
 try:
     from mne.viz.backends.qt import _qt_app_exec
     print("\nRAW and CLEAN viewers are OPEN.")
-    print("Arrange them side-by-side (macOS: Window ▸ Tile Window).")
-    print("Close all viewer windows when you’re done.")
-    _qt_app_exec()  # blocks until all Qt windows are closed
-except Exception as e:
-    print("Qt event loop not available, polling until windows close…", e)
-    import time
-    while any(getattr(b, "figure", None) is not None for b in browsers):
-        time.sleep(0.2)
-
+    print("Arrange them side-by-side (macOS: Window -> Tile Window).")
+    print("Close all viewer windows when you're done.")
+    _qt_app_exec() 
+except Exception:
+    # Fallback caso a função interna mude de lugar
+    from PyQt5.QtWidgets import QApplication
+    import sys
+    app = QApplication.instance() or QApplication(sys.argv)
+    app.exec_()
+    
 print("All viewers closed. Bye!")
-
